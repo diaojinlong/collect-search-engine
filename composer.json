@@ -1,0 +1,17 @@
+{
+    "name": "diaojinlong/collect-search-engine",
+    "description": "抓取搜索引擎的搜索标题及访问链接",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": ">=7.2.0",
+        "guzzlehttp/guzzle": "6.5.0"
+    },
+    "require-dev": {
+    },
+    "autoload": {
+        "psr-4": {
+            "DiaoJinLong\\CollectSearchEngine\\": "src/"
+        }
+    }
+}
