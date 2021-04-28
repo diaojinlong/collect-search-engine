@@ -11,7 +11,7 @@
 # 安装方法
 
 ``` 
- require diaojinlong/collect-search-engine
+composer require diaojinlong/collect-search-engine
 ```
 
 # 使用方法
