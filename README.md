@@ -24,13 +24,14 @@ $config = []; //搜索引擎配置，详情见下方细则
 $keyword = 'PHP'; //搜索关键词
 $page = 1; //搜索第几页
 $wantOriginalUrl = true; //是否获取快照的真实地址
-$engine = new EngineRequest('baidu', $config); //初始化搜索引擎
-$res = $engine->getSearchResult($keyword, $page, $wantOriginalUrl); //进行搜索
-var_dump($res->getData()); //打印搜索内容
+$engineRequest = new EngineRequest('baidu', $config); //初始化搜索引擎
+$res = $engineRequest->getSearchResult($keyword, $page, $wantOriginalUrl); //进行搜索
+echo "<pre>";
+print_r($res->getData()); //打印搜索内容
 
 ```
 
-###返回结果
+### 返回结果
 
 ```
 Array
@@ -108,7 +109,7 @@ Array
 )
 ```
 
-###请求使用Cookie
+### 请求使用Cookie
 
 ```
 // 字符串用法
@@ -139,7 +140,7 @@ var_dump($res->getHtml()); //访问百度的html
 
 ```
 
-###Config配置
+### Config配置
 
 ```
 $config = [
