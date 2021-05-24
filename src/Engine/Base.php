@@ -3,6 +3,7 @@
 namespace DiaoJinLong\CollectSearchEngine\Engine;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request;
 use Psr\Http\Message\ResponseInterface;
@@ -71,10 +72,16 @@ abstract class Base
     protected $cookieDomain = '';
 
     /**
-     * 请求的html数据
-     * @var array
+     * 请求结束是否更新cookie
+     * @var bool
      */
-    protected $html = '';
+    protected $updateCookies = true;
+
+    /**
+     * 请求的响应对象
+     * @var object Psr\Http\Message\ResponseInterface
+     */
+    protected $response = null;
 
     /**
      * 请求结果数据
@@ -106,9 +113,128 @@ abstract class Base
      */
     public function __construct($config = [])
     {
+        $this->setConfig($config);
+    }
+
+    /**
+     * 设置配置属性
+     * @param array $config
+     */
+    public function setConfig($config = [])
+    {
         foreach ($config as $key => $val) {
             $this->{$key} = $val;
         }
+    }
+
+    /**
+     * 获取配置属性
+     * @param $name
+     * @return mixed
+     */
+    public function getConfig($name)
+    {
+        return $this->{$name};
+    }
+
+    /**
+     * 获取请求的响应结果, 参考地址：https://guzzle-cn.readthedocs.io/zh_CN/latest/quickstart.html#id7
+     * @return mixed
+     */
+    public function getResponse()
+    {
+        return $this->response;
+    }
+
+    /**
+     * 获取请求后的结果
+     * @return array
+     */
+    public function getData()
+    {
+        return $this->data;
+    }
+
+    /**
+     * 获取Cookie
+     * @return array
+     */
+    public function getCookies()
+    {
+        $cookies = [];
+        foreach ($this->cookies as $key => $val) {
+            $cookies[] = [
+                'Name' => $key,
+                'Value' => $val
+            ];
+        }
+        return $cookies;
+    }
+
+    /**
+     * 设置Cookie
+     * @param $cookies
+     * @return $this
+     */
+    public function setCookies($cookies)
+    {
+        if (is_array($cookies)) {
+            foreach ($cookies as $cookie) {
+                $this->cookies[$cookie['Name']] = $cookie['Value'];
+            }
+        } else if (is_string($cookies)) {
+            $cookieArr = explode(';', trim($cookies, ';'));
+            foreach ($cookieArr as $cookie) {
+                $cookie = array_map('trim', explode('=', $cookie, 2));
+                $this->cookies[$cookie[0]] = $cookie[1];
+            }
+        }
+        return $this;
+    }
+
+    /**
+     * 删除Cookie
+     * @param string $key
+     * @return $this
+     */
+    public function delCookies($key = '')
+    {
+        if ($key) {
+            unset($this->cookies[$key]);
+        } else {
+            $this->cookies = [];
+        }
+        return $this;
+    }
+
+    /**
+     * 发送请求
+     * @param $url
+     * @param array $data
+     * @param string $method
+     * @return ResponseInterface
+     * @throws \GuzzleHttp\Exception\GuzzleException
+     */
+    public function sendRequest($url, $data = [], $method = "GET")
+    {
+        $method = strtoupper($method);
+        $client = (new Client(['timeout' => $this->timeout]));
+        $cookieJar = CookieJar::fromArray($this->cookies, $this->cookieDomain);
+        $queryOption = [
+            'headers' => $this->headers,
+            'cookies' => $cookieJar
+        ];
+        if ($method == 'GET' && $data) {
+            $queryOption['query'] = $data;
+        }
+        if ($method == 'POST' && $data) {
+            $queryOption['body'] = $data;
+        }
+        $response = $client->request($method, $url, $queryOption);
+        if ($this->updateCookies) {
+            $this->setCookies($cookieJar->toArray());
+        }
+        return $response;
     }
 
     /**
@@ -116,7 +242,7 @@ abstract class Base
      * @param string $href 需要查询原始链接的请求地址
      * @return string
      */
-    public function realHref(String $href)
+    protected function realHref(String $href)
     {
         $res = preg_match($this->snapShootPattern, $href); //正则是否是快照地址
         if ($res) {
@@ -163,7 +289,7 @@ abstract class Base
      * @param string $originalUrlField 原始链接地址键名
      * @return array
      */
-    public function asyncRealHref(Array $data, $urlField = 'url', $originalUrlField = 'original_url')
+    protected function asyncRealHref(Array $data, $urlField = 'url', $originalUrlField = 'original_url')
     {
         $urlData = [];
         $urlIndex = [];
@@ -208,7 +334,7 @@ abstract class Base
      * @param $string
      * @return string
      */
-    public function cutstrHtml($string)
+    protected function cutstrHtml($string)
     {
         $string = strip_tags($string);
         $string = str_replace(["\t", "\r\n", "\r", "\n", " "], [], $string);
@@ -220,83 +346,13 @@ abstract class Base
      * @param $url
      * @return string
      */
-    public function completionUrl($url)
+    protected function completionUrl($url)
     {
         if (preg_match('/^((http:\/\/)|(https:\/\/)).+$/', $url)) {
             return $url;
         } else {
             return $this->baseUri . $url;
         }
-    }
-
-    /**
-     * 获取请求的body
-     * @return mixed
-     */
-    public function getHtml()
-    {
-        return $this->html;
-    }
-
-    /**
-     * 获取请求后的结果
-     * @return array
-     */
-    public function getData()
-    {
-        return $this->data;
-    }
-
-    /**
-     * 获取Cookie
-     * @return array
-     */
-    public function getCookies()
-    {
-        $cookies = [];
-        foreach($this->cookies as $key=>$val){
-            $cookies[] = [
-                'Name'=>$key,
-                'Value'=>$val
-            ];
-        }
-        return $cookies;
-    }
-
-    /**
-     * 设置Cookie
-     * @param $cookies
-     * @return $this
-     */
-    public function setCookies($cookies)
-    {
-        if (is_array($cookies)) {
-            foreach ($cookies as $cookie) {
-                $this->cookies[$cookie['Name']] = $cookie['Value'];
-            }
-        } else if (is_string($cookies)) {
-            $cookieArr = explode(';', trim($cookies, ';'));
-            foreach ($cookieArr as $cookie) {
-                $cookie = array_map('trim', explode('=', $cookie, 2));
-                $this->cookies[$cookie[0]] = $cookie[1];
-            }
-        }
-        return $this;
-    }
-
-    /**
-     * 删除Cookie
-     * @param string $key
-     * @return $this
-     */
-    public function delCookies($key = '')
-    {
-        if ($key) {
-            unset($this->cookies[$key]);
-        } else {
-            $this->cookies = [];
-        }
-        return $this;
     }
 }
 

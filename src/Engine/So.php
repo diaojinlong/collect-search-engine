@@ -58,15 +58,9 @@ class So extends Base
      */
     public function getSearchResult($keyword, $page, $wantOriginalUrl = false)
     {
-        $client = (new Client(['base_uri' => $this->baseUri, 'timeout' => $this->timeout]));
-        $path = sprintf($this->path, $keyword, $this->getPn($page));
-        $cookieJar = CookieJar::fromArray($this->cookies, $this->cookieDomain);
-        $request = $client->request('GET', $path, [
-            'headers' => $this->headers,
-            'cookies' => $cookieJar
-        ]);
-        $body = (string)$request->getBody();
-        $this->html = $body;
+        $url = $this->baseUri . sprintf($this->path, $keyword, $this->getPn($page));
+        $this->response = $this->sendRequest($url);
+        $body = (string)$this->response->getBody();
         preg_match_all($this->searchResultPattern, $body, $match);
         $this->setCookies($cookieJar->toArray());
         $data = [];

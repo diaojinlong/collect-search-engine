@@ -10,7 +10,7 @@ class Baidu extends Base
 
     protected $baseUri = 'https://www.baidu.com';
 
-    protected $path = '/s?wd=%s&pn=%u&oq=%s&ie=utf-8&usm=1';
+    protected $path = '/s?wd=%s&pn=%u&oq=%s&ie=utf-8&usm=0';
 
     protected $snapShootPattern = '/www\.baidu\.com\/link\?url=/';
 
@@ -57,17 +57,10 @@ class Baidu extends Base
      */
     public function getSearchResult($keyword, $page, $wantOriginalUrl = false)
     {
-        $client = (new Client(['base_uri' => $this->baseUri, 'timeout' => $this->timeout]));
-        $path = sprintf($this->path, $keyword, $this->getPn($page), $keyword);
-        $cookieJar = CookieJar::fromArray($this->cookies, $this->cookieDomain);
-        $request = $client->request('GET', $path, [
-            'headers' => $this->headers,
-            'cookies' => $cookieJar
-        ]);
-        $body = (string)$request->getBody();
-        $this->html = $body;
+        $url = $this->baseUri . sprintf($this->path, $keyword, $this->getPn($page), $keyword);
+        $this->response = $this->sendRequest($url);
+        $body = (string)$this->response->getBody();
         preg_match_all($this->searchResultPattern, $body, $match);
-        $this->setCookies($cookieJar->toArray());
         $data = [];
         foreach ($match['title'] as $key => $val) {
             $url = $this->completionUrl($match['href'][$key]);
