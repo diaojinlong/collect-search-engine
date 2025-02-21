@@ -2,11 +2,15 @@
 
 namespace DiaoJinLong\CollectSearchEngine\Engine;
 
+use DiaoJinLong\CollectSearchEngine\EngineException;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request;
 use Psr\Http\Message\ResponseInterface;
+use Facebook\WebDriver\Remote\RemoteWebDriver;
+use Facebook\WebDriver\Remote\DesiredCapabilities;
+use Facebook\WebDriver\Remote\WebDriverCapabilityType;
 
 abstract class Base
 {
@@ -78,10 +82,16 @@ abstract class Base
     protected $updateCookies = true;
 
     /**
-     * 请求的响应对象
+     * 请求的响应内容
      * @var object Psr\Http\Message\ResponseInterface
      */
-    protected $response = null;
+    protected $body = null;
+
+    /**
+     * WebDriver服务地址
+     * @var string
+     */
+    protected $webDriverUrl = 'http://127.0.0.1:4444';
 
     /**
      * 请求结果数据
@@ -138,12 +148,12 @@ abstract class Base
     }
 
     /**
-     * 获取请求的响应结果, 参考地址：https://guzzle-cn.readthedocs.io/zh_CN/latest/quickstart.html#id7
-     * @return mixed
+     * 获取请求的结果
+     * @return string
      */
-    public function getResponse()
+    public function getBody()
     {
-        return $this->response;
+        return $this->body;
     }
 
     /**
@@ -215,26 +225,49 @@ abstract class Base
      * @return ResponseInterface
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function sendRequest($url, $data = [], $method = "GET")
+    public function sendRequest($url, $requestEngine = 'guzzle')
     {
-        $method = strtoupper($method);
-        $client = (new Client(['timeout' => $this->timeout]));
-        $cookieJar = CookieJar::fromArray($this->cookies, $this->cookieDomain);
-        $queryOption = [
-            'headers' => $this->headers,
-            'cookies' => $cookieJar
-        ];
-        if ($method == 'GET' && $data) {
-            $queryOption['query'] = $data;
+        $body = '';
+        switch ($requestEngine) {
+            case 'guzzle':
+                $client = (new Client(['timeout' => $this->timeout]));
+                $cookieJar = CookieJar::fromArray($this->cookies, $this->cookieDomain);
+                $queryOption = [
+                    'headers' => $this->headers,
+                    'cookies' => $cookieJar
+                ];
+                $response = $client->request($method, $url, $queryOption);
+                if ($this->updateCookies) {
+                    $this->setCookies($cookieJar->toArray());
+                }
+                if ($response->getStatusCode() != 200) {
+                    throw new EngineException('获取网页内容失败');
+                }
+                $body = (string)$response->getBody();
+                break;
+            case 'web_driver':
+                try {
+                    $driver = RemoteWebDriver::create($this->webDriverUrl, DesiredCapabilities::firefox());
+                    $driver->get($url);
+                    $body = $driver->getPageSource();
+                    if ($this->updateCookies) {
+                        $cookies = $driver->manage()->getCookies();
+                        $cookieArr = [];
+                        foreach ($cookies as $cookie) {
+                            $cookieArr[] = [
+                                'Name' => $cookie->getName(),
+                                'Value' => $cookie->getValue()
+                            ];
+                        }
+                        $this->setCookies($cookieArr);
+                    }
+                    $driver->quit();
+                } catch (\Exception $exception) {
+                    throw new EngineException('获取网页内容失败');
+                }
+                break;
         }
-        if ($method == 'POST' && $data) {
-            $queryOption['body'] = $data;
-        }
-        $response = $client->request($method, $url, $queryOption);
-        if ($this->updateCookies) {
-            $this->setCookies($cookieJar->toArray());
-        }
-        return $response;
+        return $body;
     }
 
     /**

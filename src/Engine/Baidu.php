@@ -52,14 +52,15 @@ class Baidu extends Base
      * @param $keyword
      * @param $page
      * @param bool $wantOriginalUrl
+     * @param string $requestEngine guzzle web_driver
      * @return $this|array
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function getSearchResult($keyword, $page, $wantOriginalUrl = false)
+    public function getSearchResult($keyword, $page, $wantOriginalUrl = false, $requestEngine = 'guzzle')
     {
         $url = $this->baseUri . sprintf($this->path, $keyword, $this->getPn($page), $keyword);
-        $this->response = $this->sendRequest($url);
-        $body = (string)$this->response->getBody();
+        $body = $this->sendRequest($url, $requestEngine);
+        $this->body = $body;
         preg_match_all($this->searchResultPattern, $body, $match);
         $data = [];
         foreach ($match['title'] as $key => $val) {
